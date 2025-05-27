@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control y Monitor ESP32</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      margin: 0; padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      gap: 1rem;
+      padding: 2rem;
+    }
+    h1 {
+      color: #4caf50;
+    }
+    button {
+      background-color: #4caf50;
+      border: none;
+      padding: 1rem 2rem;
+      color: white;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #388e3c;
+    }
+    #status {
+      font-weight: bold;
+      font-size: 1rem;
+      margin-top: 1rem;
+      color: #ffeb3b;
+    }
+    #distancia {
+      font-size: 2rem;
+      color: #ff5722;
+      font-weight: bold;
+    }
+    .container {
+      background: #1e1e1e;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,255,0,0.3);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Control y Monitor ESP32</h1>
+    <p>Estado conexión: <span id="status">Conectando...</span></p>
+    <p>Distancia medida: <span id="distancia">---</span> cm</p>
+    <div>
+      <button onclick="sendCommand('1')">Encender LED</button>
+      <button onclick="sendCommand('0')">Apagar LED</button>
+    </div>
+  </div>
+
+  <script>
+    // Broker MQTT EMQX con WebSocket seguro
+    const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+
+    // Tópicos MQTT que usamos para publicar y suscribir
+    const topicSubscribe = 'Salida/01';  // Donde ESP32 publica la distancia
+    const topicPublish = 'Entrada/01';   // Donde enviamos comandos para el LED
+
+    // Crear cliente MQTT
+    const client = mqtt.connect(brokerUrl);
+
+    // Al conectar al broker
+    client.on('connect', () => {
+      document.getElementById('status').innerText = 'Conectado al broker MQTT ✔️';
+      client.subscribe(topicSubscribe, (err) => {
+        if (err) {
+          document.getElementById('status').innerText = 'Error suscribiéndote al tópico';
+          console.error('Suscripción MQTT error:', err);
+        }
+      });
+    });
+
+    // Cuando recibimos un mensaje en el tópico suscrito
+    client.on('message', (topic, message) => {
+      if (topic === topicSubscribe) {
+        // Actualizar la distancia en pantalla
+        document.getElementById('distancia').innerText = message.toString();
+      }
+    });
+
+    // Enviar comando al ESP32
+    function sendCommand(cmd) {
+      if (client.connected) {
+        client.publish(topicPublish, cmd);
+      } else {
+        alert('No conectado al broker MQTT');
+      }
+    }
+
+    // Manejar desconexiones o errores
+    client.on('error', (err) => {
+      document.getElementById('status').innerText = 'Error en conexión MQTT';
+      console.error('MQTT error:', err);
+    });
+
+    client.on('offline', () => {
+      document.getElementById('status').innerText = 'Desconectado del broker MQTT';
+    });
+  </script>
+</body>
+</html>
